@@ -530,19 +530,24 @@ async def on_message(message: discord.Message):
                 break
 
         if found_user_id:
+            # Игнорируем команды
             if message.content.startswith(("/", "!")):
                 return
 
             ticket = bot.active_tickets[found_user_id]
+            
+            # НАША ПРАВКА: Если статус тикета еще НЕ 'chatting' (то есть кнопка "Принять" не нажата),
+            # бот просто игнорирует сообщения агентов и НЕ отправляет их клиенту.
+            if ticket['status'] != 'chatting':
+                return
+
             lang = ticket['lang']
             user = bot.get_user(found_user_id)
             
             if user:
-                # Динамический заголовок в зависимости от выбранного языка клиента
                 agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
                 embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
                 await user.send(embed=embed)
-
 
 # --- ЗАПУСК БОТА ---
 TOKEN = os.getenv("DISCORD_TOKEN")
