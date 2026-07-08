@@ -552,16 +552,16 @@ async def on_message(message: discord.Message):
             user_embed = create_embed(TRANSLATIONS[lang]['ticket_opened_title'], eta_desc, TRANSLATIONS[lang]['footer_bot'])
             await message.author.send(embed=user_embed)
             return
-
+            
         # Последующие сообщения клиента
         elif ticket['status'] == 'chatting':
             ticket_channel = guild.get_channel(ticket['channel_id'])
             if ticket_channel:
-                # Теперь заголовок динамически подтягивается в зависимости от языка тикета
                 client_label = TRANSLATIONS[lang]['client_title']
                 client_title = f"{message.author.display_name}, {client_label}"
                 
-                client_embed = create_embed(client_title, f"> {message.content}", TRANSLATIONS[lang]['footer_bot'])
+                # НАША ПРАВКА: Заменили футер на кастомный текст
+                client_embed = create_embed(client_title, f"> {message.content}", "Разговор идет с Customer")
                 
                 await ticket_channel.send(embed=client_embed)
                 await message.add_reaction("✅")
@@ -593,10 +593,11 @@ async def on_message(message: discord.Message):
             lang = ticket['lang']
             user = bot.get_user(found_user_id)
             
-            if user:
+           if user:
                 agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
                 embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
                 await user.send(embed=embed)
+                await message.add_reaction("<:logo_no_background:1447128386836369450>")
 
 # --- ЗАПУСК БОТА ---
 TOKEN = os.getenv("DISCORD_TOKEN")
