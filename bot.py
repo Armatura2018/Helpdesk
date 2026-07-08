@@ -103,17 +103,14 @@ class SupportBot(commands.Bot):
         
         print(f"Служба поддержки S7 Airlines запущена под именем {self.user}")
 
-def load_config(self):
+    def load_config(self):
         """Загрузка конфигурации и состояния из безопасной папки data"""
         if CONFIG_PATH.exists():
             try:
                 with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    # Восстанавливаем сохраненные параметры, если их нет — ставим дефолт
                     self.ticket_counter = data.get("ticket_counter", 1)
                     self.eta_time = data.get("eta_time", "15-30 минут")
-                    
-                    # Переводим строковые ключи ID серверов обратно в числа
                     return {int(k): v for k, v in data.get("guilds", {}).items()}
             except Exception as e:
                 print(f"⚠️ Ошибка загрузки конфига: {e}")
