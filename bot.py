@@ -261,6 +261,13 @@ class LanguageSelectionView(discord.ui.View):
     async def process_language(self, interaction: discord.Interaction, lang: str):
         user = interaction.user
         
+        # ШАГ 1: Мгновенно отвечаем Дискорду, чтобы уложиться в 3 секунды и избежать ошибки
+        await interaction.response.edit_message(
+            content=f"⏳ **{TRANSLATIONS[lang]['check_dm_title']}**...\nИнициализируем защищенный канал связи.", 
+            embed=None, 
+            view=None
+        )
+        
         bot.active_tickets[user.id] = {
             'guild_id': interaction.guild.id,
             'lang': lang,
@@ -270,6 +277,7 @@ class LanguageSelectionView(discord.ui.View):
             'timer_task': None
         }
 
+        # ШАГ 2: Теперь спокойно создаем ЛС (Дискорд нас уже не торопит)
         try:
             embed = create_embed(
                 title=TRANSLATIONS[lang]['dm_welcome_title'],
@@ -280,16 +288,17 @@ class LanguageSelectionView(discord.ui.View):
             await dm_channel.send(embed=embed)
         except discord.Forbidden:
             del bot.active_tickets[user.id]
-            await interaction.response.edit_message(content="Не удалось отправить сообщение в ЛС. Откройте ЛС в настройках.", embed=None, view=None)
+            # Если ЛС закрыты, используем followup, так как основной ответ уже был отправлен выше
+            await interaction.followup.send("Не удалось отправить сообщение в ЛС. Откройте личные сообщения в настройках конфиденциальности.", ephemeral=True)
             return
 
+        # ШАГ 3: Обновляем старое сообщение, добавляя туда кнопку перехода в ЛС
         view_dm = discord.ui.View()
         btn_url = discord.ui.Button(label=TRANSLATIONS[lang]['check_dm_btn'], url=f"https://discord.com/channels/@me/{dm_channel.id}")
         view_dm.add_item(btn_url)
         
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=f"**{TRANSLATIONS[lang]['check_dm_title']}**\n{TRANSLATIONS[lang]['check_dm_desc']}", 
-            embed=None, 
             view=view_dm
         )
         
