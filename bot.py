@@ -32,7 +32,8 @@ TRANSLATIONS = {
         'closed_title': "Вопрос решен",
         'closed_desc': "> Благодарим за обращение в службу поддержки S7 Airlines. Мы были рады помочь вам в решении вашего вопроса. Пожалуйста, не стесняйтесь обращаться к нам снова при возникновении трудностей.",
         'closed_footer': "\n-# Мы всегда доступны для решения ваших вопросов. Спасибо за выбор S7 Airlines.",
-        'closed_action_footer': "Отвечая на это сообщение, вы откроете новое обращение"
+        'closed_action_footer': "Отвечая на это сообщение, вы откроете новое обращение",
+        'client_title': "Клиент"
     },
     'en': {
         'dm_welcome_title': "Thank you for opening a ticket",
@@ -503,22 +504,23 @@ async def on_message(message: discord.Message):
             await message.author.send(embed=user_embed)
             return
 
-        # Последующие сообщения клиента (Пункт 3: Оформление ответов клиента как у агента)
+        # Последующие сообщения клиента
         elif ticket['status'] == 'chatting':
             ticket_channel = guild.get_channel(ticket['channel_id'])
             if ticket_channel:
-                client_title = f"{message.author.display_name}, Клиент / Client"
+                # Теперь заголовок динамически подтягивается в зависимости от языка тикета
+                client_label = TRANSLATIONS[lang]['client_title']
+                client_title = f"{message.author.display_name}, {client_label}"
+                
                 client_embed = create_embed(client_title, f"> {message.content}", TRANSLATIONS[lang]['footer_bot'])
                 
                 await ticket_channel.send(embed=client_embed)
-                
-                # Твоя кастомная реакция на сообщения клиента (поставь сюда свой текст эмодзи из инструкции выше, если надо)
                 await message.add_reaction("✅")
                 
                 if ticket['timer_task']:
                     ticket['timer_task'].cancel()
                 ticket['timer_task'] = asyncio.create_task(start_inactivity_timer(message.author.id, ticket_channel))
-
+                
     # Агент пишет в канал тикета на сервере
     else:
         found_user_id = None
