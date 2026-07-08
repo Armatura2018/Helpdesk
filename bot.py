@@ -43,6 +43,11 @@ TRANSLATIONS = {
         'closed_footer': "\n-# Мы всегда доступны для решения ваших вопросов. Спасибо за выбор S7 Airlines.",
         'closed_action_footer': "Отвечая на это сообщение, вы откроете новое обращение",
         'client_title': "Клиент"
+        'staff_closed_title': "Обращение закрыто",
+        'staff_closed_desc': "> Текущая сессия поддержки была успешно завершена и перемещена в архив.\n\n**Инициатор закрытия:** {reason}",
+        'staff_reason_manual': "Агент поддержки",
+        'staff_reason_timeout': "Тайм-аут неактивности клиента",
+        'staff_closed_footer': "Архив клиентской службы S7 Airlines"
     },
     'en': {
         'dm_welcome_title': "Thank you for opening a ticket",
@@ -67,6 +72,12 @@ TRANSLATIONS = {
         'closed_desc': "> Thank you for contacting S7 Airlines Support. It was our pleasure to assist you. Please do not hesitate to reach out to us again if you encounter any issues.",
         'closed_footer': "\n-# We are always available to resolve your issues. Thank you for choosing S7 Airlines.",
         'closed_action_footer': "Replying to this message will open a new support ticket"
+        'client_title': "Client",
+        'staff_closed_title': "Ticket Closed",
+        'staff_closed_desc': "> The current support session has been successfully completed and archived.\n\n**Closed by:** {reason}",
+        'staff_reason_manual': "Support Agent",
+        'staff_reason_timeout': "Client Inactivity Timeout",
+        'staff_closed_footer': "S7 Airlines Customer Service Archive"
     }
 }
 
@@ -91,6 +102,35 @@ class SupportBot(commands.Bot):
         self.add_view(MainPanelView())
         
         print(f"Служба поддержки S7 Airlines запущена под именем {self.user}")
+
+def load_config(self):
+        """Загрузка конфигурации и состояния из безопасной папки data"""
+        if CONFIG_PATH.exists():
+            try:
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    # Восстанавливаем сохраненные параметры, если их нет — ставим дефолт
+                    self.ticket_counter = data.get("ticket_counter", 1)
+                    self.eta_time = data.get("eta_time", "15-30 минут")
+                    
+                    # Переводим строковые ключи ID серверов обратно в числа
+                    return {int(k): v for k, v in data.get("guilds", {}).items()}
+            except Exception as e:
+                print(f"⚠️ Ошибка загрузки конфига: {e}")
+        return {}
+
+    def save_config(self):
+        """Сохранение конфигурации, счетчика и ETA в безопасную папку data"""
+        try:
+            payload = {
+                "guilds": self.config,
+                "ticket_counter": self.ticket_counter,
+                "eta_time": self.eta_time
+            }
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            print(f"⚠️ Ошибка сохранения конфига: {e}")
 
 bot = SupportBot()
 
@@ -412,8 +452,7 @@ async def close_ticket_action(user_id, channel, method="manual"):
 
     lang = ticket['lang']
     user = bot.get_user(user_id)
-    
-    # Сообщение клиенту в ЛС
+
     if user:
         desc = TRANSLATIONS[lang]['closed_desc'] + TRANSLATIONS[lang]['closed_footer']
         embed = create_embed(TRANSLATIONS[lang]['closed_title'], desc, TRANSLATIONS[lang]['closed_action_footer'])
@@ -424,15 +463,17 @@ async def close_ticket_action(user_id, channel, method="manual"):
         
     del bot.active_tickets[user_id]
 
-    # Пункт 4: Оформление закрытия внутри самого канала тикета (Такой же стиль, текст короче)
-    staff_reason = "Агентом поддержки" if method == "manual" else "Тайм-аут неактивности клиента"
+    reason_key = 'staff_reason_manual' if method == "manual" else 'staff_reason_timeout'
+    staff_reason = TRANSLATIONS[lang][reason_key]
+
+    desc_text = TRANSLATIONS[lang]['staff_closed_desc'].format(reason=staff_reason)
+
     staff_embed = create_embed(
-        title="Обращение закрыто / Ticket Closed",
-        desc=f"> Текущая сессия поддержки была успешно завершена и перемещена в архив.\n\n**Инициатор закрытия:** {staff_reason}",
-        footer_text="Архив клиентской службы S7 Airlines"
+        title=TRANSLATIONS[lang]['staff_closed_title'],
+        desc=desc_text,
+        footer_text=TRANSLATIONS[lang]['staff_closed_footer']
     )
     await channel.send(embed=staff_embed)
-
 
 # --- СЛЭШ-КОМАНДЫ ДЛЯ АДМИНИСТРАЦИИ ---
 @bot.tree.command(name="panel", description="Запустить интерактивный процесс настройки панели поддержки")
@@ -446,8 +487,9 @@ async def panel_command(interaction: discord.Interaction):
 @app_commands.checks.has_permissions(manage_messages=True)
 async def set_eta(interaction: discord.Interaction, time_val: str):
     bot.eta_time = time_val
+    bot.save_config() # <-- ДОБАВИТЬ: сохраняем новое время в файл data/config.json
     await interaction.response.send_message(f"Ориентировочное время ответа успешно изменено на: **{time_val}**", ephemeral=True)
-
+    
 @bot.tree.command(name="close", description="Закрыть текущую сессию поддержки и зафиксировать тикет")
 async def close_command(interaction: discord.Interaction):
     found_user_id = None
@@ -485,6 +527,7 @@ async def on_message(message: discord.Message):
             
             formatted_num = f"{bot.ticket_counter:04d}"
             bot.ticket_counter += 1
+            bot.save_config()
             
             support_category = guild.get_channel(cfg['support_cat_id'])
             
