@@ -4,6 +4,15 @@ from discord.ext import commands
 import datetime
 import asyncio
 import os
+import json
+from pathlib import Path
+
+DATA_DIR = Path("/app/data")
+if not DATA_DIR.exists():
+    DATA_DIR = Path("./data")
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+CONFIG_PATH = DATA_DIR / "config.json"
 
 # --- ЦВЕТОВАЯ ПАЛИТРА БРЕНДА ---
 EMBED_COLOR = discord.Color(0xbddc03) # Твой кастомный цвет #bddc03
