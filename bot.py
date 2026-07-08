@@ -593,11 +593,11 @@ async def on_message(message: discord.Message):
             lang = ticket['lang']
             user = bot.get_user(found_user_id)
             
-           if user:
-                agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
-                embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
-                await user.send(embed=embed)
-                await message.add_reaction("<:logo_no_background:1447128386836369450>")
+        if user:
+            agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
+            embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
+            await user.send(embed=embed)
+            await message.add_reaction("<:logo_no_background:1447128386836369450>")
 
 # --- ЗАПУСК БОТА ---
 TOKEN = os.getenv("DISCORD_TOKEN")
