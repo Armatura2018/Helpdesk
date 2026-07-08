@@ -71,7 +71,7 @@ TRANSLATIONS = {
         'closed_title': "Issue Resolved",
         'closed_desc': "> Thank you for contacting S7 Airlines Support. It was our pleasure to assist you. Please do not hesitate to reach out to us again if you encounter any issues.",
         'closed_footer': "\n-# We are always available to resolve your issues. Thank you for choosing S7 Airlines.",
-        'closed_action_footer': "Replying to this message will open a new support ticket"
+        'closed_action_footer': "Replying to this message will open a new support ticket",
         'client_title': "Client",
         'staff_closed_title': "Ticket Closed",
         'staff_closed_desc': "> The current support session has been successfully completed and archived.\n\n**Closed by:** {reason}",
