@@ -78,6 +78,8 @@ class SupportBot(commands.Bot):
         if not self.synced:
             await self.tree.sync()
             self.synced = True
+        self.add_view(MainPanelView())
+        
         print(f"Служба поддержки S7 Airlines запущена под именем {self.user}")
 
 bot = SupportBot()
