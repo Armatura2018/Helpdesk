@@ -132,14 +132,18 @@ class SupportBot(commands.Bot):
 bot = SupportBot()
 
 def create_embed(title, desc, footer_text):
-    """Вспомогательная функция для генерации эмбедов с фирменным цветом"""
+    """Создание эмбеда с уменьшенным аккуратным заголовком через ###"""
+    # Если заголовок передан, мы пихаем его в описание через '### ', 
+    # а стандартный большой title эмбеда оставляем пустым.
+    smaller_title_desc = f"### {title}\n{desc}" if title else desc
+    
     embed = discord.Embed(
-        title=title,
-        description=desc,
-        color=EMBED_COLOR
+        description=smaller_title_desc, 
+        color=0x2b2d31 # Красивый темно-серый цвет под цвет темы Дискорда
     )
-    embed.set_footer(text=footer_text)
-    embed.timestamp = datetime.datetime.now(datetime.timezone.utc)
+    
+    if footer_text:
+        embed.set_footer(text=footer_text)
     return embed
 
 # --- СТЕП-БАЙ-СТЕП НАСТРОЙКА /panel ---
@@ -594,10 +598,17 @@ async def on_message(message: discord.Message):
             user = bot.get_user(found_user_id)
             
         if user:
-            agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
-            embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
-            await user.send(embed=embed)
-            await message.add_reaction("<:logo_no_background:1447128386836369450>")
+                agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
+                embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
+                await user.send(embed=embed)
+                
+                # НАША ПРАВКА: Безопасная установка галочки
+                try:
+                    # Пробуем поставить твою кастомную галочку
+                    await message.add_reaction("<:logo_no_background:1447128386836369450>")
+                except Exception:
+                    # Если бот не на том сервере или эмодзи не найден — ставим обычную, чтобы код не ломался
+                    await message.add_reaction("✅")
 
 # --- ЗАПУСК БОТА ---
 TOKEN = os.getenv("DISCORD_TOKEN")
