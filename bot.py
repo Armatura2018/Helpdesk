@@ -15,7 +15,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 CONFIG_PATH = DATA_DIR / "config.json"
 
 # --- ЦВЕТОВАЯ ПАЛИТРА БРЕНДА ---
-EMBED_COLOR = discord.Color(0xbddc03) # Твой кастомный цвет #bddc03
+EMBED_COLOR = discord.Color(0xbddc03) # Фирменный цвет #bddc03
 
 # --- ЛОКАЛИЗАЦИЯ И ТЕКСТЫ (Официальный стиль S7 Airlines) ---
 TRANSLATIONS = {
@@ -173,12 +173,12 @@ class SupportBot(commands.Bot):
 bot = SupportBot()
 
 def create_embed(title, desc, footer_text=None, author_user=None, author_role=""):
-    """Универсальное создание эмбеда с компактным заголовком через ###"""
+    """Универсальное создание эмбеда в брендовом цвете"""
     smaller_title_desc = f"### {title}\n{desc}" if title else desc
     
     embed = discord.Embed(
         description=smaller_title_desc, 
-        color=0x2b2d31
+        color=EMBED_COLOR
     )
     
     if author_user:
@@ -394,9 +394,7 @@ class LanguageSelectionView(discord.ui.View):
     async def process_language(self, interaction: discord.Interaction, lang: str):
         user = interaction.user
 
-        # Функция, запускаемая после выбора темы в выпадающем меню
         async def on_topic_selected(topic_interaction: discord.Interaction, chosen_topic: str):
-            # Регистрируем тикет
             bot.active_tickets[user.id] = {
                 'guild_id': interaction.guild.id,
                 'lang': lang,
@@ -413,7 +411,6 @@ class LanguageSelectionView(discord.ui.View):
                 view=None
             )
 
-            # ОтправкаПриветственного Сообщения в ЛС
             try:
                 topic_label = TRANSLATIONS[lang]['topics'][chosen_topic]['label']
                 dm_desc = f"**Тема:** {topic_label}\n\n" + TRANSLATIONS[lang]['dm_welcome_desc']
@@ -430,7 +427,6 @@ class LanguageSelectionView(discord.ui.View):
                 await topic_interaction.followup.send("Не удалось отправить сообщение в ЛС. Откройте личные сообщения в настройках конфиденциальности.", ephemeral=True)
                 return
 
-            # Кнопка перехода в ЛС
             view_dm = discord.ui.View()
             btn_url = discord.ui.Button(label=TRANSLATIONS[lang]['check_dm_btn'], url=f"https://discord.com/channels/@me/{dm_channel.id}")
             view_dm.add_item(btn_url)
@@ -446,7 +442,6 @@ class LanguageSelectionView(discord.ui.View):
             except Exception:
                 pass
 
-        # Переходим к меню выбора темы
         topic_view = TopicSelectView(lang, on_topic_selected)
         await interaction.response.edit_message(
             content=None,
@@ -669,7 +664,10 @@ async def on_message(message: discord.Message):
                 )
                 
                 await ticket_channel.send(embed=client_embed)
-                await message.add_reaction("✅")
+                try:
+                    await message.add_reaction("✅")
+                except Exception:
+                    pass
                 
                 if ticket['timer_task']:
                     ticket['timer_task'].cancel()
@@ -689,7 +687,6 @@ async def on_message(message: discord.Message):
 
             ticket = bot.active_tickets[found_user_id]
             
-            # Сообщения игнорируются, если агент еще не нажал "Принять"
             if ticket['status'] != 'chatting':
                 return
 
@@ -707,9 +704,9 @@ async def on_message(message: discord.Message):
                 await user.send(embed=embed)
                 
                 try:
-                    await message.add_reaction("галочка:1234567890")
-                except Exception:
                     await message.add_reaction("✅")
+                except Exception:
+                    pass
 
 # --- ЗАПУСК БОТА ---
 TOKEN = os.getenv("DISCORD_TOKEN")
