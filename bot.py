@@ -47,7 +47,26 @@ TRANSLATIONS = {
         'staff_closed_desc': "> Текущая сессия поддержки была успешно завершена и перемещена в архив.\n\n**Инициатор закрытия:** {reason}",
         'staff_reason_manual': "Агент поддержки",
         'staff_reason_timeout': "Тайм-аут неактивности клиента",
-        'staff_closed_footer': "Архив клиентской службы S7 Airlines"
+        'staff_closed_footer': "Архив клиентской службы S7 Airlines",
+        'topic_title': "Выберите тему вашего обращения:",
+        'topic_placeholder': "Выберите категорию...",
+        'topics': {
+            'general': {
+                'label': "Общие вопросы",
+                'desc': "Вопросы по игре, сервисам или общие консультации",
+                'emoji': "❓" # Можно заменить на кастомный: "custom_name:1234567890"
+            },
+            'staff': {
+                'label': "Вопросы по персоналу",
+                'desc': "Жалобы, вопросы по работе администрации или штата",
+                'emoji': "👥"
+            },
+            'partnership': {
+                'label': "Партнерские вопросы",
+                'desc': "Сотрудничество, медиа и коммерция",
+                'emoji': "🤝"
+            }
+        }
     },
     'en': {
         'dm_welcome_title': "Thank you for opening a ticket",
@@ -77,7 +96,26 @@ TRANSLATIONS = {
         'staff_closed_desc': "> The current support session has been successfully completed and archived.\n\n**Closed by:** {reason}",
         'staff_reason_manual': "Support Agent",
         'staff_reason_timeout': "Client Inactivity Timeout",
-        'staff_closed_footer': "S7 Airlines Customer Service Archive"
+        'staff_closed_footer': "S7 Airlines Customer Service Archive",
+        'topic_title': "Select the topic of your request:",
+        'topic_placeholder': "Select a category...",
+        'topics': {
+            'general': {
+                'label': "General Questions",
+                'desc': "Game inquiries, services, or general support",
+                'emoji': "❓"
+            },
+            'staff': {
+                'label': "Staff Questions",
+                'desc': "Feedback, complaints, or staff inquiries",
+                'emoji': "👥"
+            },
+            'partnership': {
+                'label': "Partnership Questions",
+                'desc': "Cooperation, media, and business inquiries",
+                'emoji': "🤝"
+            }
+        }
     }
 }
 
@@ -131,17 +169,28 @@ class SupportBot(commands.Bot):
 
 bot = SupportBot()
 
-def create_embed(title, desc, footer_text):
-    """Создание эмбеда с уменьшенным аккуратным заголовком через ###"""
-    # Если заголовок передан, мы пихаем его в описание через '### ', 
-    # а стандартный большой title эмбеда оставляем пустым.
+def create_embed(title, desc, footer_text=None, author_user=None, author_role=""):
+    """
+    Универсальное создание эмбеда:
+    - author_user: объект пользователя (message.author или user)
+    - author_role: плашка рядом с ником (например: Клиент / Client или Агент)
+    """
     smaller_title_desc = f"### {title}\n{desc}" if title else desc
     
     embed = discord.Embed(
         description=smaller_title_desc, 
-        color=0x2b2d31 # Красивый темно-серый цвет под цвет темы Дискорда
+        color=0x2b2d31
     )
     
+    # Добавляем аватарку и кликабельную ссылку на профиль
+    if author_user:
+        role_label = f" | {author_role}" if author_role else ""
+        embed.set_author(
+            name=f"{author_user.display_name}{role_label}",
+            icon_url=author_user.display_avatar.url,
+            url=f"https://discord.com/users/{author_user.id}" # Ссылка на профиль в Дискорде
+        )
+        
     if footer_text:
         embed.set_footer(text=footer_text)
     return embed
@@ -273,6 +322,42 @@ class PanelSetupView(discord.ui.View):
         await interaction.response.edit_message(content="Настройка отменена администратором.", view=None)
 
 
+class TopicSelectView(discord.ui.View):
+    def __init__(self, lang, callback_func):
+        super().__init__(timeout=180)
+        self.lang = lang
+        self.callback_func = callback_func
+        
+        t = TRANSLATIONS[lang]
+        options = []
+        
+        for key, data in t['topics'].items():
+            emoji_val = data['emoji']
+            # Если передали кастомный эмодзи вида "name:id", превращаем его в PartialEmoji
+            if ":" in str(emoji_val):
+                emoji_val = discord.PartialEmoji.from_str(emoji_val)
+                
+            options.append(
+                discord.SelectOption(
+                    label=data['label'],
+                    value=key,
+                    description=data['desc'],
+                    emoji=emoji_val
+                )
+            )
+            
+        select = discord.ui.Select(
+            placeholder=t['topic_placeholder'],
+            options=options
+        )
+        select.callback = self.select_callback
+        self.add_item(select)
+
+    async def select_callback(self, interaction: discord.Interaction):
+        chosen_topic_key = interaction.data['values'][0]
+        await self.callback_func(interaction, chosen_topic_key)
+
+
 # --- ГЛАВНАЯ ПАНЕЛЬ И ВЫБОР ЯЗЫКА ---
 class MainPanelView(discord.ui.View):
     def __init__(self):
@@ -311,6 +396,32 @@ class LanguageSelectionView(discord.ui.View):
 
     async def process_language(self, interaction: discord.Interaction, lang: str):
         user = interaction.user
+
+        # Логика после того, как клиент нажал на кнопку языка (RU / EN):
+async def on_language_selected(interaction: discord.Interaction, chosen_lang: str):
+    # Запоминаем выбранный язык
+    ticket = bot.active_tickets[interaction.user.id]
+    ticket['lang'] = chosen_lang
+    
+    # Функция, которая сработает ПОСЛЕ выбора темы
+    async def on_topic_selected(topic_interaction: discord.Interaction, chosen_topic: str):
+        ticket['topic'] = chosen_topic
+        topic_data = TRANSLATIONS[chosen_lang]['topics'][chosen_topic]
+        
+        # Редактируем сообщение — просим описать проблему
+        msg_text = f"Вы выбрали тему: **{topic_data['label']}**\n\n" + TRANSLATIONS[chosen_lang]['ask_description']
+        await topic_interaction.response.edit_message(
+            embed=create_embed("Тема выбрана", msg_text),
+            view=None
+        )
+        ticket['status'] = 'awaiting_description'
+
+    # Показываем меню выбора темы
+    topic_view = TopicSelectView(chosen_lang, on_topic_selected)
+    await interaction.response.edit_message(
+        embed=create_embed(TRANSLATIONS[chosen_lang]['topic_title'], ""),
+        view=topic_view
+    )
         
         # ШАГ 1: Мгновенно отвечаем Дискорду, чтобы уложиться в 3 секунды и избежать ошибки
         await interaction.response.edit_message(
@@ -562,10 +673,15 @@ async def on_message(message: discord.Message):
             ticket_channel = guild.get_channel(ticket['channel_id'])
             if ticket_channel:
                 client_label = TRANSLATIONS[lang]['client_title']
-                client_title = f"{message.author.display_name}, {client_label}"
                 
-                # НАША ПРАВКА: Заменили футер на кастомный текст
-                client_embed = create_embed(client_title, f"> {message.content}", "Разговор идет с Customer")
+                # Передаем автора в create_embed — заголовок подтянется в плашку автора
+                client_embed = create_embed(
+                    title=None, 
+                    desc=f"> {message.content}", 
+                    footer_text="Разговор идет с Customer",
+                    author_user=message.author,
+                    author_role=client_label
+                )
                 
                 await ticket_channel.send(embed=client_embed)
                 await message.add_reaction("✅")
@@ -598,16 +714,19 @@ async def on_message(message: discord.Message):
             user = bot.get_user(found_user_id)
             
         if user:
-                agent_title = f"{message.author.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
-                embed = create_embed(agent_title, f"> {message.content}", TRANSLATIONS[lang]['footer_agent'])
+                # Передаем агента как автора с его аватаркой и ссылкой
+                embed = create_embed(
+                    title=None, 
+                    desc=f"> {message.content}", 
+                    footer_text=TRANSLATIONS[lang]['footer_agent'],
+                    author_user=message.author,
+                    author_role=TRANSLATIONS[lang]['accepted_title']
+                )
                 await user.send(embed=embed)
                 
-                # НАША ПРАВКА: Безопасная установка галочки
                 try:
-                    # Пробуем поставить твою кастомную галочку
-                    await message.add_reaction("<:logo_no_background:1447128386836369450>")
+                    await message.add_reaction("галочка:1234567890")
                 except Exception:
-                    # Если бот не на том сервере или эмодзи не найден — ставим обычную, чтобы код не ломался
                     await message.add_reaction("✅")
 
 # --- ЗАПУСК БОТА ---
