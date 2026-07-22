@@ -22,6 +22,7 @@ TRANSLATIONS = {
     'ru': {
         'dm_welcome_title': "Спасибо за открытие обращения",
         'dm_welcome_desc': "-# Для того чтобы наша команда могла оказать вам помощь как можно быстрее, пожалуйста, опишите ваш запрос максимально подробно. Мы оперативно передадим его дежурным агентам поддержки.",
+        'ask_description': "Пожалуйста, подробно опишите суть вашего вопроса в одном сообщении ниже.",
         'footer_bot': "Вы сейчас разговариваете с ботом",
         'footer_agent': "Вы сейчас разговариваете с агентом",
         'check_dm_title': "Обращение формируется",
@@ -32,7 +33,7 @@ TRANSLATIONS = {
         'eta_text': "\n\nОжидаемое время ответа агента составляет: **{eta}**.\n-# Данное время является ориентировочным. В периоды высокой загрузки службы поддержки время ожидания может быть увеличено.",
         'rejected_title': "Запрос отклонен",
         'rejected_desc': "Приносим свои извинения, но агенты поддержки посчитали ваш запрос некорректным или недостаточно информативным для открытия сессии.",
-        'accepted_title': "Клиентская поддержка", # Убрали слэш
+        'accepted_title': "Клиентская поддержка",
         'accepted_desc': "### Ваш запрос был принят в работу\n> Благодарим за обращение в службу поддержки S7 Airlines. Вы были успешно подключены к нашему агенту. Мы стремимся к обеспечению наивысшего уровня сервиса и надеемся предоставить вам всю необходимую помощь.",
         'accepted_instruction': "\n\n-# Чтобы мы могли оказать вам более эффективную помощь, пожалуйста, формулируйте свой запрос четко и кратко, это позволит нам предоставить точную и своевременную поддержку. Просим вас проявить терпение и вежливость, пока мы работаем над тем, чтобы помочь вам.",
         'still_here_title': "Вы еще здесь?",
@@ -54,7 +55,7 @@ TRANSLATIONS = {
             'general': {
                 'label': "Общие вопросы",
                 'desc': "Вопросы по игре, сервисам или общие консультации",
-                'emoji': "❓" # Можно заменить на кастомный: "custom_name:1234567890"
+                'emoji': "❓"
             },
             'staff': {
                 'label': "Вопросы по персоналу",
@@ -71,6 +72,7 @@ TRANSLATIONS = {
     'en': {
         'dm_welcome_title': "Thank you for opening a ticket",
         'dm_welcome_desc': "-# To help our team assist you as quickly as possible, please describe your request in maximum detail. We will promptly forward it to our support agents.",
+        'ask_description': "Please describe the details of your issue in a single message below.",
         'footer_bot': "You are currently talking to a bot",
         'footer_agent': "You are currently talking to an agent",
         'check_dm_title': "Ticket is being created",
@@ -81,7 +83,7 @@ TRANSLATIONS = {
         'eta_text': "\n\nExpected response time: **{eta}**.\n-# This time is approximate. During peak hours, response times may be longer.",
         'rejected_title': "Request Rejected",
         'rejected_desc': "We apologize, but our support agents deemed your request incorrect or insufficient to open a support session.",
-        'accepted_title': "Customer Support", # Убрали слэш
+        'accepted_title': "Customer Support",
         'accepted_desc': "### Your request has been accepted\n> Thank you for contacting S7 Airlines Support. You have been successfully connected to our support agent. We strive to provide the highest level of service and hope to resolve your request efficiently.",
         'accepted_instruction': "\n\n-# To help us assist you more effectively, please keep your responses clear and concise. This allows us to provide accurate and timely support. We kindly ask for your patience and courtesy while we work to assist you.",
         'still_here_title': "Are you still here?",
@@ -134,6 +136,7 @@ class SupportBot(commands.Bot):
         self.ticket_counter = 1
 
     async def on_ready(self):
+        self.config = self.load_config()
         if not self.synced:
             await self.tree.sync()
             self.synced = True
@@ -170,11 +173,7 @@ class SupportBot(commands.Bot):
 bot = SupportBot()
 
 def create_embed(title, desc, footer_text=None, author_user=None, author_role=""):
-    """
-    Универсальное создание эмбеда:
-    - author_user: объект пользователя (message.author или user)
-    - author_role: плашка рядом с ником (например: Клиент / Client или Агент)
-    """
+    """Универсальное создание эмбеда с компактным заголовком через ###"""
     smaller_title_desc = f"### {title}\n{desc}" if title else desc
     
     embed = discord.Embed(
@@ -182,13 +181,12 @@ def create_embed(title, desc, footer_text=None, author_user=None, author_role=""
         color=0x2b2d31
     )
     
-    # Добавляем аватарку и кликабельную ссылку на профиль
     if author_user:
         role_label = f" | {author_role}" if author_role else ""
         embed.set_author(
             name=f"{author_user.display_name}{role_label}",
             icon_url=author_user.display_avatar.url,
-            url=f"https://discord.com/users/{author_user.id}" # Ссылка на профиль в Дискорде
+            url=f"https://discord.com/users/{author_user.id}"
         )
         
     if footer_text:
@@ -269,7 +267,6 @@ class PanelSetupView(discord.ui.View):
             ch_id = self.data['panel_channel_id']
             target_channel = guild.get_channel(ch_id)
             
-            # Сюда ты можешь вставить кастомные эмодзи строкой, если захочешь (например, emoji="<:yes:1234...>")
             btn_yes = discord.ui.Button(style=discord.ButtonStyle.success, label="Отправить", emoji="✅")
             btn_no = discord.ui.Button(style=discord.ButtonStyle.danger, label="Отмена", emoji="❌")
             
@@ -307,6 +304,7 @@ class PanelSetupView(discord.ui.View):
 
     async def confirm_setup(self, interaction: discord.Interaction):
         bot.config[interaction.guild.id] = self.data
+        bot.save_config()
         target_channel = interaction.guild.get_channel(self.data['panel_channel_id'])
         
         main_panel_embed = discord.Embed(
@@ -333,7 +331,6 @@ class TopicSelectView(discord.ui.View):
         
         for key, data in t['topics'].items():
             emoji_val = data['emoji']
-            # Если передали кастомный эмодзи вида "name:id", превращаем его в PartialEmoji
             if ":" in str(emoji_val):
                 emoji_val = discord.PartialEmoji.from_str(emoji_val)
                 
@@ -358,7 +355,7 @@ class TopicSelectView(discord.ui.View):
         await self.callback_func(interaction, chosen_topic_key)
 
 
-# --- ГЛАВНАЯ ПАНЕЛЬ И ВЫБОР ЯЗЫКА ---
+# --- ГЛАВНАЯ ПАНЕЛЬ И ВЫБОР ЯЗЫКА И ТЕМЫ ---
 class MainPanelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -397,78 +394,65 @@ class LanguageSelectionView(discord.ui.View):
     async def process_language(self, interaction: discord.Interaction, lang: str):
         user = interaction.user
 
-        # Логика после того, как клиент нажал на кнопку языка (RU / EN):
-async def on_language_selected(interaction: discord.Interaction, chosen_lang: str):
-    # Запоминаем выбранный язык
-    ticket = bot.active_tickets[interaction.user.id]
-    ticket['lang'] = chosen_lang
-    
-    # Функция, которая сработает ПОСЛЕ выбора темы
-    async def on_topic_selected(topic_interaction: discord.Interaction, chosen_topic: str):
-        ticket['topic'] = chosen_topic
-        topic_data = TRANSLATIONS[chosen_lang]['topics'][chosen_topic]
-        
-        # Редактируем сообщение — просим описать проблему
-        msg_text = f"Вы выбрали тему: **{topic_data['label']}**\n\n" + TRANSLATIONS[chosen_lang]['ask_description']
-        await topic_interaction.response.edit_message(
-            embed=create_embed("Тема выбрана", msg_text),
-            view=None
-        )
-        ticket['status'] = 'awaiting_description'
+        # Функция, запускаемая после выбора темы в выпадающем меню
+        async def on_topic_selected(topic_interaction: discord.Interaction, chosen_topic: str):
+            # Регистрируем тикет
+            bot.active_tickets[user.id] = {
+                'guild_id': interaction.guild.id,
+                'lang': lang,
+                'topic': chosen_topic,
+                'status': 'awaiting_description',
+                'channel_id': None,
+                'agent_id': None,
+                'timer_task': None
+            }
 
-    # Показываем меню выбора темы
-    topic_view = TopicSelectView(chosen_lang, on_topic_selected)
-    await interaction.response.edit_message(
-        embed=create_embed(TRANSLATIONS[chosen_lang]['topic_title'], ""),
-        view=topic_view
-    )
-        
-        # ШАГ 1: Мгновенно отвечаем Дискорду, чтобы уложиться в 3 секунды и избежать ошибки
-        await interaction.response.edit_message(
-            content=f"⏳ **{TRANSLATIONS[lang]['check_dm_title']}**...\nИнициализируем защищенный канал связи.", 
-            embed=None, 
-            view=None
-        )
-        
-        bot.active_tickets[user.id] = {
-            'guild_id': interaction.guild.id,
-            'lang': lang,
-            'status': 'awaiting_description',
-            'channel_id': None,
-            'agent_id': None,
-            'timer_task': None
-        }
-
-        # ШАГ 2: Теперь спокойно создаем ЛС (Дискорд нас уже не торопит)
-        try:
-            embed = create_embed(
-                title=TRANSLATIONS[lang]['dm_welcome_title'],
-                desc=TRANSLATIONS[lang]['dm_welcome_desc'],
-                footer_text=TRANSLATIONS[lang]['footer_bot']
+            await topic_interaction.response.edit_message(
+                content=f"⏳ **{TRANSLATIONS[lang]['check_dm_title']}**...\nИнициализируем защищенный канал связи.", 
+                embed=None, 
+                view=None
             )
-            dm_channel = await user.create_dm()
-            await dm_channel.send(embed=embed)
-        except discord.Forbidden:
-            del bot.active_tickets[user.id]
-            # Если ЛС закрыты, используем followup, так как основной ответ уже был отправлен выше
-            await interaction.followup.send("Не удалось отправить сообщение в ЛС. Откройте личные сообщения в настройках конфиденциальности.", ephemeral=True)
-            return
 
-        # ШАГ 3: Обновляем старое сообщение, добавляя туда кнопку перехода в ЛС
-        view_dm = discord.ui.View()
-        btn_url = discord.ui.Button(label=TRANSLATIONS[lang]['check_dm_btn'], url=f"https://discord.com/channels/@me/{dm_channel.id}")
-        view_dm.add_item(btn_url)
-        
-        await interaction.edit_original_response(
-            content=f"**{TRANSLATIONS[lang]['check_dm_title']}**\n{TRANSLATIONS[lang]['check_dm_desc']}", 
-            view=view_dm
+            # ОтправкаПриветственного Сообщения в ЛС
+            try:
+                topic_label = TRANSLATIONS[lang]['topics'][chosen_topic]['label']
+                dm_desc = f"**Тема:** {topic_label}\n\n" + TRANSLATIONS[lang]['dm_welcome_desc']
+                
+                embed = create_embed(
+                    title=TRANSLATIONS[lang]['dm_welcome_title'],
+                    desc=dm_desc,
+                    footer_text=TRANSLATIONS[lang]['footer_bot']
+                )
+                dm_channel = await user.create_dm()
+                await dm_channel.send(embed=embed)
+            except discord.Forbidden:
+                del bot.active_tickets[user.id]
+                await topic_interaction.followup.send("Не удалось отправить сообщение в ЛС. Откройте личные сообщения в настройках конфиденциальности.", ephemeral=True)
+                return
+
+            # Кнопка перехода в ЛС
+            view_dm = discord.ui.View()
+            btn_url = discord.ui.Button(label=TRANSLATIONS[lang]['check_dm_btn'], url=f"https://discord.com/channels/@me/{dm_channel.id}")
+            view_dm.add_item(btn_url)
+            
+            await topic_interaction.edit_original_response(
+                content=f"**{TRANSLATIONS[lang]['check_dm_title']}**\n{TRANSLATIONS[lang]['check_dm_desc']}", 
+                view=view_dm
+            )
+            
+            await asyncio.sleep(20)
+            try:
+                await topic_interaction.delete_original_response()
+            except Exception:
+                pass
+
+        # Переходим к меню выбора темы
+        topic_view = TopicSelectView(lang, on_topic_selected)
+        await interaction.response.edit_message(
+            content=None,
+            embed=create_embed(TRANSLATIONS[lang]['topic_title'], ""),
+            view=topic_view
         )
-        
-        await asyncio.sleep(20)
-        try:
-            await interaction.delete_original_response()
-        except:
-            pass
 
 
 # --- КНОПКИ ДЛЯ АГЕНТОВ В ТИКЕТ-КАНАЛЕ ---
@@ -497,7 +481,6 @@ class AgentTicketActions(discord.ui.View):
 
         user = bot.get_user(self.user_id)
         if user:
-            # Отображается строго один язык (без косой черты)
             agent_title = f"{interaction.user.display_name}, {TRANSLATIONS[lang]['accepted_title']}"
             full_desc = TRANSLATIONS[lang]['accepted_desc'] + TRANSLATIONS[lang]['accepted_instruction']
             embed = create_embed(agent_title, full_desc, TRANSLATIONS[lang]['footer_agent'])
@@ -547,7 +530,6 @@ async def start_inactivity_timer(user_id, channel):
                 )
                 await user.send(embed=embed)
                 
-                # Оформление системного лога в канале тикета
                 log_embed = create_embed("⚠️ Ожидание ответа", "> Клиенту отправлено автоматическое уведомление о неактивности. Ожидание завершения: 6 часов.", "Система контроля таймингов")
                 await channel.send(embed=log_embed)
             
@@ -587,6 +569,7 @@ async def close_ticket_action(user_id, channel, method="manual"):
     )
     await channel.send(embed=staff_embed)
 
+
 # --- СЛЭШ-КОМАНДЫ ДЛЯ АДМИНИСТРАЦИИ ---
 @bot.tree.command(name="panel", description="Запустить интерактивный процесс настройки панели поддержки")
 @app_commands.checks.has_permissions(administrator=True)
@@ -599,9 +582,9 @@ async def panel_command(interaction: discord.Interaction):
 @app_commands.checks.has_permissions(manage_messages=True)
 async def set_eta(interaction: discord.Interaction, time_val: str):
     bot.eta_time = time_val
-    bot.save_config() # <-- ДОБАВИТЬ: сохраняем новое время в файл data/config.json
+    bot.save_config()
     await interaction.response.send_message(f"Ориентировочное время ответа успешно изменено на: **{time_val}**", ephemeral=True)
-    
+
 @bot.tree.command(name="close", description="Закрыть текущую сессию поддержки и зафиксировать тикет")
 async def close_command(interaction: discord.Interaction):
     found_user_id = None
@@ -633,7 +616,7 @@ async def on_message(message: discord.Message):
         guild = bot.get_guild(ticket['guild_id'])
         cfg = bot.config.get(guild.id)
 
-        # Первое сообщение (создание тикета)
+        # Первое сообщение клиентом (создание текстового канала тикета)
         if ticket['status'] == 'awaiting_description':
             ticket['status'] = 'pending_agent'
             
@@ -655,9 +638,12 @@ async def on_message(message: discord.Message):
             )
             ticket['channel_id'] = ticket_channel.id
 
+            topic_key = ticket.get('topic', 'general')
+            topic_label = TRANSLATIONS[lang]['topics'].get(topic_key, {}).get('label', 'Общий вопрос')
+
             agent_embed = discord.Embed(
                 title=f"Запрос от: {message.author.display_name}",
-                description=f"> {message.content}",
+                description=f"**Тема:** {topic_label}\n\n> {message.content}",
                 color=EMBED_COLOR
             )
             actions_view = AgentTicketActions(message.author.id)
@@ -674,7 +660,6 @@ async def on_message(message: discord.Message):
             if ticket_channel:
                 client_label = TRANSLATIONS[lang]['client_title']
                 
-                # Передаем автора в create_embed — заголовок подтянется в плашку автора
                 client_embed = create_embed(
                     title=None, 
                     desc=f"> {message.content}", 
@@ -699,22 +684,19 @@ async def on_message(message: discord.Message):
                 break
 
         if found_user_id:
-            # Игнорируем команды
             if message.content.startswith(("/", "!")):
                 return
 
             ticket = bot.active_tickets[found_user_id]
             
-            # НАША ПРАВКА: Если статус тикета еще НЕ 'chatting' (то есть кнопка "Принять" не нажата),
-            # бот просто игнорирует сообщения агентов и НЕ отправляет их клиенту.
+            # Сообщения игнорируются, если агент еще не нажал "Принять"
             if ticket['status'] != 'chatting':
                 return
 
             lang = ticket['lang']
             user = bot.get_user(found_user_id)
             
-        if user:
-                # Передаем агента как автора с его аватаркой и ссылкой
+            if user:
                 embed = create_embed(
                     title=None, 
                     desc=f"> {message.content}", 
